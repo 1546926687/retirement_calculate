@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>存款复利计算器 - 每年能花多少钱？</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 {
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #f7971e, #ffd200);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    text-align: center;
+    color: #999;
+    margin-bottom: 40px;
+    font-size: 0.95em;
+  }
+  .card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(10px);
+  }
+  .input-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .field {
+    flex: 1;
+    min-width: 200px;
+  }
+  .field label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+    color: #bbb;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 1.1em;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus {
+    border-color: #ffd200;
+  }
+  .field select option {
+    background: #2a2755;
+    color: #fff;
+  }
+  .pension-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .pension-group label {
+    margin-bottom: 0 !important;
+  }
+  .toggle-switch {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.15);
+    border-radius: 26px;
+    transition: 0.3s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: 0.3s;
+  }
+  .toggle-switch input:checked + .toggle-slider {
+    background: #ffd200;
+  }
+  .toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(22px);
+  }
+  .pension-fields {
+    display: none;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .pension-fields.show {
+    display: flex;
+  }
+  .field .unit {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 4px;
+  }
+  .result-section { margin-top: 8px; }
+  .result-box {
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .result-safe {
+    background: rgba(46, 213, 115, 0.12);
+    border: 1px solid rgba(46, 213, 115, 0.3);
+  }
+  .result-warn {
+    background: rgba(255, 165, 0, 0.12);
+    border: 1px solid rgba(255, 165, 0, 0.3);
+  }
+  .result-danger {
+    background: rgba(255, 71, 87, 0.12);
+    border: 1px solid rgba(255, 71, 87, 0.3);
+  }
+  .result-box .label {
+    font-size: 0.85em;
+    color: #aaa;
+    margin-bottom: 4px;
+  }
+  .result-box .value {
+    font-size: 1.6em;
+    font-weight: 700;
+  }
+  .result-safe .value { color: #2ed573; }
+  .result-warn .value { color: #ffa502; }
+  .result-danger .value { color: #ff4757; }
+  .result-box .detail {
+    font-size: 0.85em;
+    color: #999;
+    margin-top: 6px;
+  }
+
+  /* Chart */
+  .chart-container {
+    margin-top: 8px;
+    position: relative;
+    width: 100%;
+    height: 320px;
+  }
+  canvas { width: 100% !important; height: 100% !important; }
+
+  /* Table */
+  .table-toggle {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #bbb;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    margin-top: 16px;
+    transition: all 0.2s;
+  }
+  .table-toggle:hover { border-color: #ffd200; color: #ffd200; }
+  .year-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 0.85em;
+    display: none;
+  }
+  .year-table.show { display: table; }
+  .year-table th, .year-table td {
+    padding: 10px 12px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .year-table th {
+    color: #999;
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+    background: #2a2755;
+  }
+  .year-table td:first-child, .year-table th:first-child { text-align: left; }
+  .year-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .zero-row td { color: #ff4757; font-weight: 600; }
+
+  @media (max-width: 600px) {
+    body { padding: 20px 12px; }
+    h1 { font-size: 1.5em; }
+    .card { padding: 20px; }
+    .result-box .value { font-size: 1.3em; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>存款复利计算器</h1>
+  <p class="subtitle">看看你的钱能花多久</p>
+
+  <div class="card">
+    <div class="input-group">
+      <div class="field">
+        <label>当前年龄 (岁)</label>
+        <input type="number" id="age" value="30" min="1" max="120" step="1">
+      </div>
+      <div class="field">
+        <label>预期寿命 (岁)</label>
+        <select id="lifespan">
+          <option value="70">70 岁</option>
+          <option value="75">75 岁</option>
+          <option value="80" selected>80 岁</option>
+          <option value="85">85 岁</option>
+          <option value="90">90 岁</option>
+          <option value="95">95 岁</option>
+          <option value="100">100 岁</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>总存款 (元)</label>
+        <input type="text" id="savings" value="1,000,000" inputmode="numeric">
+        <div class="unit" id="savings-hint">100 万</div>
+      </div>
+      <div class="field">
+        <label>年化回报率 (%)</label>
+        <input type="number" id="rate" value="4" min="0" max="100" step="0.1">
+        <div class="unit">投资年化收益率</div>
+      </div>
+      <div class="field">
+        <label>每年花费 (元)</label>
+        <input type="text" id="spending" value="80,000" inputmode="numeric">
+        <div class="unit" id="spending-hint">8 万</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:24px;">
+      <div class="pension-group">
+        <label class="toggle-switch">
+          <input type="checkbox" id="pensionToggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <label style="color:#bbb;font-size:0.9em;cursor:pointer;" onclick="$('pensionToggle').click()">领取养老金</label>
+      </div>
+      <div class="pension-fields" id="pensionFields">
+        <div class="field" style="min-width:150px;">
+          <label>性别</label>
+          <select id="gender">
+            <option value="male">男（65 岁领取）</option>
+            <option value="female">女（60 岁领取）</option>
+          </select>
+        </div>
+        <div class="field" style="min-width:200px;">
+          <label>每月养老金 (元)</label>
+          <input type="text" id="pension" value="3,000" inputmode="numeric">
+          <div class="unit" id="pension-hint">0.3 万</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-section" id="results"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:16px;color:#ddd;">资产变化趋势</h3>
+    <div class="chart-container">
+      <canvas id="chart"></canvas>
+    </div>
+    <button class="table-toggle" id="toggleTable">显示详细表格</button>
+    <table class="year-table" id="yearTable">
+      <thead>
+        <tr id="tableHead">
+          <th>年龄</th>
+          <th>年初余额</th>
+          <th>投资收益</th>
+          <th>养老金</th>
+          <th>年度支出</th>
+          <th>年末余额</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function formatMoney(n) {
+  if (Math.abs(n) >= 1e8) return (n / 1e8).toFixed(2) + ' 亿';
+  if (Math.abs(n) >= 1e4) return (n / 1e4).toFixed(2) + ' 万';
+  return n.toFixed(2) + ' 元';
+}
+
+// Format number with commas: 1000000 -> "1,000,000"
+function addCommas(n) {
+  const parts = n.toString().split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
+// Parse formatted string to number: "1,000,000" -> 1000000
+function parseFormatted(s) {
+  return parseFloat(String(s).replace(/,/g, '')) || 0;
+}
+
+// Chinese wan/yi hint: 1000000 -> "100w"
+function wanHint(n) {
+  if (n >= 1e8) return (n / 1e8) + ' 亿';
+  if (n >= 1e4) return (n / 1e4) + ' 万';
+  if (n > 0) return n + ' 元';
+  return '';
+}
+
+// Setup formatted money input
+function setupMoneyInput(inputId, hintId) {
+  const input = $(inputId);
+  const hint = $(hintId);
+
+  function updateHint() {
+    const val = parseFormatted(input.value);
+    hint.textContent = wanHint(val);
+  }
+
+  input.addEventListener('input', function() {
+    // Remember cursor position relative to digits
+    const pos = this.selectionStart;
+    const beforeCursor = this.value.substring(0, pos);
+    const digitsBefore = beforeCursor.replace(/[^0-9]/g, '').length;
+
+    // Clean and reformat
+    const raw = this.value.replace(/[^0-9]/g, '');
+    const num = parseInt(raw) || 0;
+    this.value = num > 0 ? addCommas(num) : '';
+
+    // Restore cursor position
+    let newPos = 0, digits = 0;
+    for (let i = 0; i < this.value.length; i++) {
+      if (this.value[i] !== ',') digits++;
+      if (digits >= digitsBefore) { newPos = i + 1; break; }
+    }
+    if (digits < digitsBefore) newPos = this.value.length;
+    this.setSelectionRange(newPos, newPos);
+
+    updateHint();
+    calculate();
+  });
+
+  updateHint();
+}
+
+function calculate() {
+  const age = parseInt($('age').value) || 30;
+  const savings = parseFormatted($('savings').value);
+  const rate = (parseFloat($('rate').value) || 0) / 100;
+  const spending = parseFormatted($('spending').value);
+  const lifespan = parseInt($('lifespan').value) || 80;
+  const remainingYears = Math.max(lifespan - age, 1);
+
+  // Pension
+  const hasPension = $('pensionToggle').checked;
+  const gender = $('gender').value;
+  const pensionMonthly = parseFormatted($('pension').value);
+  const pensionYearly = pensionMonthly * 12;
+  const pensionStartAge = gender === 'male' ? 65 : 60;
+
+  const safeSpending = savings * rate;
+  const resultsEl = $('results');
+
+  // Calculate year-by-year until lifespan
+  const years = [];
+  let balance = savings;
+  let depleted = -1;
+
+  for (let i = 1; i <= remainingYears; i++) {
+    const currentAge = age + i;
+    const interest = balance * rate;
+    const pensionIncome = (hasPension && currentAge >= pensionStartAge) ? pensionYearly : 0;
+    const netSpending = spending - pensionIncome;
+    const yearEnd = balance + interest - netSpending;
+    years.push({
+      year: i,
+      age: currentAge,
+      startBalance: balance,
+      interest: interest,
+      pension: pensionIncome,
+      spending: spending,
+      netSpending: netSpending,
+      endBalance: Math.max(yearEnd, 0)
+    });
+    if (yearEnd <= 0 && depleted < 0) {
+      depleted = i;
+      break;
+    }
+    balance = yearEnd;
+  }
+
+  const lastBalance = years.length > 0 ? years[years.length - 1].endBalance : savings;
+
+  // Results display
+  let html = '';
+
+  // Safe spending hint (including pension after retirement)
+  let safeDetail = `每月 ${formatMoney(safeSpending / 12)}，按此花费永远不会花光本金`;
+  if (hasPension) {
+    safeDetail += `<br>领取养老金后（${pensionStartAge} 岁起），安全支出可提高到 ${formatMoney(safeSpending + pensionYearly)}/年`;
+  }
+  html += `<div class="result-box result-safe">
+    <div class="label">永续安全支出（每年利息${hasPension ? ' + 养老金' : ''}）</div>
+    <div class="value">${formatMoney(safeSpending)}/年</div>
+    <div class="detail">${safeDetail}</div>
+  </div>`;
+
+  if (spending <= safeSpending) {
+    html += `<div class="result-box result-safe">
+      <div class="label">当前花费状态（到 ${lifespan} 岁，还有 ${remainingYears} 年）</div>
+      <div class="value">永远花不完</div>
+      <div class="detail">你的年支出 ${formatMoney(spending)} ≤ 年利息 ${formatMoney(safeSpending)}，到 ${lifespan} 岁时还剩 ${formatMoney(lastBalance)}</div>
+    </div>`;
+  } else if (depleted < 0) {
+    html += `<div class="result-box result-warn">
+      <div class="label">当前花费状态（到 ${lifespan} 岁，还有 ${remainingYears} 年）</div>
+      <div class="value">够花到 ${lifespan} 岁</div>
+      <div class="detail">虽然每年消耗本金，但到 ${lifespan} 岁时还剩 ${formatMoney(lastBalance)}${hasPension ? '（含养老金补贴）' : ''}</div>
+    </div>`;
+  } else {
+    const depletedAge = age + depleted;
+    const cls = depleted <= 20 ? 'result-danger' : 'result-warn';
+    html += `<div class="result-box ${cls}">
+      <div class="label">预计耗尽时间</div>
+      <div class="value">${depleted} 年后花光（${depletedAge} 岁）</div>
+      <div class="detail">你的年支出 ${formatMoney(spending)} 超过承受能力，${depletedAge < lifespan ? '撑不到 ' + lifespan + ' 岁' : '刚好到 ' + lifespan + ' 岁'}${hasPension && depletedAge < pensionStartAge ? '（还没开始领养老金）' : ''}</div>
+    </div>`;
+  }
+
+  resultsEl.innerHTML = html;
+
+  // Draw chart & table
+  drawChart(years, depleted, age);
+  fillTable(years, hasPension);
+}
+
+function drawChart(years, depleted, startAge) {
+  const canvas = $('chart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (years.length === 0) return;
+
+  const data = [years[0].startBalance, ...years.map(y => y.endBalance)];
+  const maxVal = Math.max(...data) * 1.1 || 1;
+  const padL = 70, padR = 20, padT = 20, padB = 40;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (chartH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    // Label
+    const val = maxVal * (1 - i / 4);
+    ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(formatMoney(val), padL - 8, y + 4);
+  }
+
+  // X labels
+  ctx.fillStyle = '#666';
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(data.length / 8));
+  for (let i = 0; i < data.length; i += step) {
+    const x = padL + (i / (data.length - 1)) * chartW;
+    ctx.fillText((startAge + i) + '岁', x, H - 10);
+  }
+
+  // Line
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = padL + (i / (data.length - 1)) * chartW;
+    const y = padT + chartH * (1 - data[i] / maxVal);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#ffd200';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Gradient fill
+  const lastX = padL + chartW;
+  ctx.lineTo(lastX, padT + chartH);
+  ctx.lineTo(padL, padT + chartH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+  grad.addColorStop(0, 'rgba(255,210,0,0.25)');
+  grad.addColorStop(1, 'rgba(255,210,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Zero line if depleted
+  if (depleted > 0) {
+    const zx = padL + (depleted / (data.length - 1)) * chartW;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = '#ff4757';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(zx, padT);
+    ctx.lineTo(zx, padT + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ff4757';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((startAge + depleted) + '岁耗尽', zx, padT - 4);
+  }
+}
+
+function fillTable(years, hasPension) {
+  // Update header
+  $('tableHead').innerHTML = hasPension
+    ? '<th>年龄</th><th>年初余额</th><th>投资收益</th><th>养老金</th><th>年度支出</th><th>年末余额</th>'
+    : '<th>年龄</th><th>年初余额</th><th>投资收益</th><th>年度支出</th><th>年末余额</th>';
+
+  const tbody = $('tableBody');
+  tbody.innerHTML = years.map(y => {
+    const cls = y.endBalance <= 0 ? 'class="zero-row"' : '';
+    const pensionCol = hasPension ? `<td style="color:#2ed573">+${formatMoney(y.pension)}</td>` : '';
+    return `<tr ${cls}>
+      <td>${y.age} 岁</td>
+      <td>${formatMoney(y.startBalance)}</td>
+      <td>+${formatMoney(y.interest)}</td>
+      ${pensionCol}
+      <td>-${formatMoney(y.spending)}</td>
+      <td>${formatMoney(y.endBalance)}</td>
+    </tr>`;
+  }).join('');
+}
+
+$('toggleTable').addEventListener('click', function() {
+  const t = $('yearTable');
+  t.classList.toggle('show');
+  this.textContent = t.classList.contains('show') ? '隐藏详细表格' : '显示详细表格';
+});
+
+// Money inputs with comma formatting
+setupMoneyInput('savings', 'savings-hint');
+setupMoneyInput('spending', 'spending-hint');
+setupMoneyInput('pension', 'pension-hint');
+
+// Other inputs
+['age', 'rate', 'lifespan', 'gender'].forEach(id => {
+  $(id).addEventListener('input', calculate);
+  $(id).addEventListener('change', calculate);
+});
+
+$('pensionToggle').addEventListener('change', function() {
+  $('pensionFields').classList.toggle('show', this.checked);
+  calculate();
+});
+
+window.addEventListener('resize', calculate);
+calculate();
+</script>
+</body>
+</html>
