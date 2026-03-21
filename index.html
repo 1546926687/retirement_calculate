@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>存款复利计算器 - 每年能花多少钱？</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%231a1a2e'/><path d='M16 44 L26 32 L36 36 L48 18' stroke='%23c9a84c' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='48' cy='18' r='3.5' fill='%23c9a84c'/><path d='M16 44 L26 32 L36 36 L48 18 L48 44 Z' fill='%23c9a84c' opacity='0.15'/></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -172,7 +173,53 @@
     width: 100%;
     height: 320px;
   }
-  canvas { width: 100% !important; height: 100% !important; }
+  canvas { width: 100% !important; height: 100% !important; cursor: crosshair; }
+  .chart-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(20, 18, 50, 0.92);
+    border: 1px solid rgba(255, 210, 0, 0.4);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.82em;
+    color: #e0e0e0;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+  }
+  .chart-tooltip.show { opacity: 1; }
+  .chart-tooltip .tt-age { color: #ffd200; font-weight: 600; }
+  .chart-tooltip .tt-val { color: #2ed573; font-weight: 600; }
+  .chart-crosshair-v, .chart-crosshair-h {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .chart-crosshair-v {
+    width: 1px;
+    border-left: 1px dashed rgba(255, 210, 0, 0.4);
+    top: 0; bottom: 0;
+  }
+  .chart-crosshair-h {
+    height: 1px;
+    border-top: 1px dashed rgba(255, 210, 0, 0.4);
+    left: 0; right: 0;
+  }
+  .chart-crosshair-v.show, .chart-crosshair-h.show { opacity: 1; }
+  .chart-dot {
+    position: absolute;
+    width: 8px; height: 8px;
+    background: #ffd200;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 6px rgba(255, 210, 0, 0.5);
+  }
+  .chart-dot.show { opacity: 1; }
 
   /* Table */
   .table-toggle {
@@ -210,6 +257,266 @@
   .year-table td:first-child, .year-table th:first-child { text-align: left; }
   .year-table tr:hover td { background: rgba(255,255,255,0.03); }
   .zero-row td { color: #ff4757; font-weight: 600; }
+  .expense-row td { color: #e17055; }
+
+  /* Custom combo select */
+  .combo-select {
+    position: relative;
+    display: inline-block;
+  }
+  .combo-select input {
+    cursor: pointer;
+  }
+  .combo-select .combo-arrow {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #666;
+    font-size: 0.7em;
+    transition: transform 0.2s;
+  }
+  .combo-select.open .combo-arrow { transform: translateY(-50%) rotate(180deg); }
+  .combo-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 100%;
+    background: #2a2755;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 20;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .combo-select.open .combo-dropdown { display: block; }
+  .combo-dropdown .combo-option {
+    padding: 8px 14px;
+    color: #ccc;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.1s;
+    white-space: nowrap;
+  }
+  .combo-dropdown .combo-option:hover {
+    background: rgba(255,210,0,0.12);
+    color: #fff;
+  }
+
+  /* Income section */
+  .income-section { margin-bottom: 24px; }
+  .income-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    background: rgba(46,213,115,0.04);
+    border: 1px solid rgba(46,213,115,0.12);
+    border-radius: 10px;
+    transition: border-color 0.2s;
+  }
+  .income-item:hover { border-color: rgba(46,213,115,0.3); }
+  .income-item { overflow: visible; }
+  .income-item input {
+    padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 0.95em;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .income-item input:focus { border-color: #2ed573; }
+  .income-item .inc-amount { width: 140px; }
+  .income-item .inc-hint { font-size: 0.75em; color: #888; min-width: 50px; }
+  .income-item .inc-remove {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    margin-left: auto;
+  }
+  .income-item .inc-remove:hover { color: #ff4757; background: rgba(255,71,87,0.1); }
+  .income-item .inc-summary {
+    font-size: 0.78em;
+    color: #2ed573;
+    width: 100%;
+    margin-top: 2px;
+  }
+  .btn-add-income {
+    background: none;
+    border: 1px dashed rgba(46,213,115,0.3);
+    color: #999;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85em;
+    margin-top: 8px;
+    transition: all 0.2s;
+  }
+  .btn-add-income:hover { border-color: #2ed573; color: #2ed573; }
+
+  /* Big expense section */
+  .expense-section { margin-bottom: 24px; }
+  .expense-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .expense-header h4 { color: #bbb; font-size: 0.9em; font-weight: 500; }
+  .expense-list { display: flex; flex-direction: column; gap: 10px; }
+  .expense-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    transition: border-color 0.2s;
+  }
+  .expense-item:hover { border-color: rgba(255,255,255,0.18); }
+  .expense-item { overflow: visible; }
+  .expense-item input, .expense-item select {
+    padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 0.95em;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .expense-item input:focus, .expense-item select:focus { border-color: #ffd200; }
+  .expense-item select option { background: #2a2755; color: #fff; }
+  .expense-item .exp-amount { width: 140px; }
+  .expense-item .exp-note { width: 100px; }
+  .expense-item .exp-hint { font-size: 0.75em; color: #888; min-width: 50px; }
+  .expense-item .exp-remove {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    margin-left: auto;
+  }
+  .expense-item .exp-remove:hover { color: #ff4757; background: rgba(255,71,87,0.1); }
+
+  /* Loan sub-row */
+  .expense-item .exp-main-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .expense-item .exp-loan-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .expense-item .exp-loan-row.show { display: flex; }
+  .expense-item .exp-loan-row label {
+    font-size: 0.8em;
+    color: #888;
+    white-space: nowrap;
+  }
+  .expense-item .exp-loan-row > input,
+  .expense-item .exp-loan-row > select {
+    padding: 6px 10px;
+    font-size: 0.85em;
+  }
+  .exp-loan-toggle {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #888;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78em;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .exp-loan-toggle:hover { border-color: #ffd200; color: #ffd200; }
+  .exp-loan-toggle.active { border-color: #e17055; color: #e17055; }
+  .exp-loan-info {
+    font-size: 0.78em;
+    color: #e17055;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  /* Custom age stepper */
+  .age-stepper {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.06);
+    transition: border-color 0.2s;
+  }
+  .age-stepper:focus-within { border-color: #ffd200; }
+  .age-stepper input {
+    width: 52px;
+    text-align: center;
+    border: none !important;
+    background: transparent !important;
+    padding: 6px 2px !important;
+    font-size: 0.95em;
+    color: #fff;
+    outline: none;
+    -moz-appearance: textfield;
+    border-radius: 0 !important;
+  }
+  .age-stepper input::-webkit-outer-spin-button,
+  .age-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .age-stepper button {
+    background: rgba(255,255,255,0.06);
+    border: none;
+    color: #aaa;
+    width: 30px;
+    align-self: stretch;
+    cursor: pointer;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .age-stepper button:hover { background: rgba(255,210,0,0.15); color: #ffd200; }
+  .age-stepper button:active { background: rgba(255,210,0,0.25); }
+  .btn-add-expense {
+    background: none;
+    border: 1px dashed rgba(255,255,255,0.2);
+    color: #999;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85em;
+    margin-top: 8px;
+    transition: all 0.2s;
+  }
+  .btn-add-expense:hover { border-color: #ffd200; color: #ffd200; }
 
   @media (max-width: 600px) {
     body { padding: 20px 12px; }
@@ -228,7 +535,11 @@
     <div class="input-group">
       <div class="field">
         <label>当前年龄 (岁)</label>
-        <input type="number" id="age" value="30" min="1" max="120" step="1">
+        <div class="age-stepper" style="width:100%;border-radius:10px;">
+          <button type="button" onclick="stepAge('age',-1)">−</button>
+          <input type="number" id="age" value="30" min="1" max="120" step="1" style="flex:1;width:auto;font-size:1.1em;padding:12px 4px!important;">
+          <button type="button" onclick="stepAge('age',1)">+</button>
+        </div>
       </div>
       <div class="field">
         <label>预期寿命 (岁)</label>
@@ -249,7 +560,11 @@
       </div>
       <div class="field">
         <label>年化回报率 (%)</label>
-        <input type="number" id="rate" value="4" min="0" max="100" step="0.1">
+        <div class="age-stepper" style="width:100%;border-radius:10px;">
+          <button type="button" onclick="stepRate('rate',-0.1)">−</button>
+          <input type="number" id="rate" value="4" min="0" max="100" step="0.1" style="flex:1;width:auto;font-size:1.1em;padding:12px 4px!important;">
+          <button type="button" onclick="stepRate('rate',0.1)">+</button>
+        </div>
         <div class="unit">投资年化收益率</div>
       </div>
       <div class="field">
@@ -283,6 +598,22 @@
       </div>
     </div>
 
+    <div class="income-section">
+      <div class="expense-header">
+        <h4>收入计划</h4>
+      </div>
+      <div class="expense-list" id="incomeList"></div>
+      <button class="btn-add-income" id="addIncome">+ 添加收入阶段（工资、副业、租金等）</button>
+    </div>
+
+    <div class="expense-section">
+      <div class="expense-header">
+        <h4>大额支出计划</h4>
+      </div>
+      <div class="expense-list" id="expenseList"></div>
+      <button class="btn-add-expense" id="addExpense">+ 添加大额支出（买房、买车、装修等）</button>
+    </div>
+
     <div class="result-section" id="results"></div>
   </div>
 
@@ -290,6 +621,10 @@
     <h3 style="margin-bottom:16px;color:#ddd;">资产变化趋势</h3>
     <div class="chart-container">
       <canvas id="chart"></canvas>
+      <div class="chart-tooltip" id="chartTooltip"></div>
+      <div class="chart-crosshair-v" id="crossV"></div>
+      <div class="chart-crosshair-h" id="crossH"></div>
+      <div class="chart-dot" id="chartDot"></div>
     </div>
     <button class="table-toggle" id="toggleTable">显示详细表格</button>
     <table class="year-table" id="yearTable">
@@ -310,6 +645,73 @@
 
 <script>
 const $ = id => document.getElementById(id);
+
+function stepAge(inputId, delta) {
+  const input = typeof inputId === 'string' ? $(inputId) : inputId;
+  const min = parseInt(input.min) || 1;
+  const max = parseInt(input.max) || 120;
+  let val = (parseInt(input.value) || 0) + delta;
+  val = Math.max(min, Math.min(max, val));
+  input.value = val;
+  input.dispatchEvent(new Event('input'));
+}
+
+function stepRate(inputId, delta) {
+  const input = typeof inputId === 'string' ? $(inputId) : inputId;
+  const min = parseFloat(input.min) || 0;
+  const max = parseFloat(input.max) || 100;
+  let val = Math.round(((parseFloat(input.value) || 0) + delta) * 10) / 10;
+  val = Math.max(min, Math.min(max, val));
+  input.value = val;
+  input.dispatchEvent(new Event('input'));
+}
+
+// Custom combo select: editable input + always-show-all dropdown
+function createComboSelect(options, opts) {
+  const width = opts.width || '100px';
+  const placeholder = opts.placeholder || '选择或输入';
+  const onSelect = opts.onSelect || function(){};
+
+  const wrap = document.createElement('div');
+  wrap.className = 'combo-select';
+  wrap.style.width = width;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = placeholder;
+  input.style.width = '100%';
+  input.style.paddingRight = '24px';
+  if (opts.dataField) input.dataset.field = opts.dataField;
+
+  const arrow = document.createElement('span');
+  arrow.className = 'combo-arrow';
+  arrow.textContent = '\u25BC';
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'combo-dropdown';
+  options.forEach(opt => {
+    const item = document.createElement('div');
+    item.className = 'combo-option';
+    item.textContent = opt;
+    item.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      input.value = opt;
+      wrap.classList.remove('open');
+      onSelect(opt);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    dropdown.appendChild(item);
+  });
+
+  wrap.appendChild(input);
+  wrap.appendChild(arrow);
+  wrap.appendChild(dropdown);
+
+  input.addEventListener('focus', function() { wrap.classList.add('open'); });
+  input.addEventListener('blur', function() { wrap.classList.remove('open'); });
+
+  return { wrap, input };
+}
 
 function formatMoney(n) {
   if (Math.abs(n) >= 1e8) return (n / 1e8).toFixed(2) + ' 亿';
@@ -374,6 +776,357 @@ function setupMoneyInput(inputId, hintId) {
   updateHint();
 }
 
+// Income management
+let incomeId = 0;
+
+function addIncomeItem() {
+  const id = ++incomeId;
+  const currentAge = parseInt($('age').value) || 30;
+  const div = document.createElement('div');
+  div.className = 'income-item';
+  div.dataset.id = id;
+
+  const incCombo = createComboSelect(['工资', '副业', '租金', '分红', '其他'], {
+    width: '100px', placeholder: '来源', dataField: 'incLabel'
+  });
+
+  div.innerHTML = `
+    <span data-slot="incLabel"></span>
+    <div class="age-stepper">
+      <button type="button" data-step="-1" data-target="incStart">−</button>
+      <input type="number" data-field="incStart" value="${currentAge}" min="1" max="120">
+      <button type="button" data-step="1" data-target="incStart">+</button>
+    </div>
+    <span style="color:#666;font-size:0.85em">~</span>
+    <div class="age-stepper">
+      <button type="button" data-step="-1" data-target="incEnd">−</button>
+      <input type="number" data-field="incEnd" value="${Math.min(currentAge + 30, 65)}" min="1" max="120">
+      <button type="button" data-step="1" data-target="incEnd">+</button>
+    </div>
+    <span style="color:#666;font-size:0.85em">岁</span>
+    <input type="text" class="inc-amount" data-field="incMonthly" value="${addCommas(10000)}" inputmode="numeric" placeholder="月收入">
+    <span class="inc-hint"></span>
+    <button class="inc-remove" title="删除">&times;</button>
+    <div class="inc-summary"></div>
+  `;
+
+  // Replace slot with combo select
+  div.querySelector('[data-slot="incLabel"]').replaceWith(incCombo.wrap);
+
+  $('incomeList').appendChild(div);
+
+  // Stepper buttons
+  div.querySelectorAll('[data-step]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const target = div.querySelector(`[data-field="${this.dataset.target}"]`);
+      stepAge(target, parseInt(this.dataset.step));
+    });
+  });
+
+  // Amount formatting
+  const amountInput = div.querySelector('[data-field="incMonthly"]');
+  const hint = div.querySelector('.inc-hint');
+  const summary = div.querySelector('.inc-summary');
+
+  function updateIncHint() {
+    const monthly = parseFormatted(amountInput.value);
+    hint.textContent = monthly > 0 ? '/月' : '';
+    const startAge = parseInt(div.querySelector('[data-field="incStart"]').value) || 0;
+    const endAge = parseInt(div.querySelector('[data-field="incEnd"]').value) || 0;
+    const years = endAge - startAge;
+    if (monthly > 0 && years > 0) {
+      summary.innerHTML = `${startAge}~${endAge}岁，共${years}年，年收入 <b>${formatMoney(monthly * 12)}</b>，总收入 <b>${formatMoney(monthly * 12 * years)}</b>`;
+    } else {
+      summary.textContent = '';
+    }
+  }
+
+  amountInput.addEventListener('input', function() {
+    const pos = this.selectionStart;
+    const beforeCursor = this.value.substring(0, pos);
+    const digitsBefore = beforeCursor.replace(/[^0-9]/g, '').length;
+    const raw = this.value.replace(/[^0-9]/g, '');
+    const num = parseInt(raw) || 0;
+    this.value = num > 0 ? addCommas(num) : '';
+    let newPos = 0, digits = 0;
+    for (let i = 0; i < this.value.length; i++) {
+      if (this.value[i] !== ',') digits++;
+      if (digits >= digitsBefore) { newPos = i + 1; break; }
+    }
+    if (digits < digitsBefore) newPos = this.value.length;
+    this.setSelectionRange(newPos, newPos);
+    updateIncHint();
+    calculate();
+  });
+
+  div.querySelectorAll('[data-field="incStart"],[data-field="incEnd"]').forEach(el => {
+    el.addEventListener('input', function() { updateIncHint(); calculate(); });
+  });
+
+  div.querySelector('.inc-remove').addEventListener('click', function() {
+    div.remove();
+    calculate();
+  });
+
+  updateIncHint();
+  calculate();
+}
+
+function getIncomes() {
+  const items = [];
+  document.querySelectorAll('.income-item').forEach(div => {
+    const label = div.querySelector('[data-field="incLabel"]').value;
+    const startAge = parseInt(div.querySelector('[data-field="incStart"]').value) || 0;
+    const endAge = parseInt(div.querySelector('[data-field="incEnd"]').value) || 0;
+    const monthly = parseFormatted(div.querySelector('[data-field="incMonthly"]').value);
+    if (startAge > 0 && endAge > startAge && monthly > 0) {
+      items.push({ label, startAge, endAge, monthly, yearly: monthly * 12 });
+    }
+  });
+  return items;
+}
+
+$('addIncome').addEventListener('click', function() {
+  addIncomeItem();
+});
+
+// Big expense management
+let expenseId = 0;
+const presetExpenses = [
+  { label: '买房', amount: 2000000 },
+  { label: '买车', amount: 200000 },
+  { label: '装修', amount: 200000 },
+  { label: '婚礼', amount: 200000 },
+  { label: '教育', amount: 100000 },
+  { label: '医疗', amount: 100000 },
+  { label: '其他', amount: 0 },
+];
+
+function addExpenseItem(preset) {
+  const id = ++expenseId;
+  const currentAge = parseInt($('age').value) || 30;
+  const div = document.createElement('div');
+  div.className = 'expense-item';
+  div.dataset.id = id;
+  div.style.flexDirection = 'column';
+
+  const defaultAmount = preset ? preset.amount : 0;
+  const defaultNote = preset ? preset.label : '';
+
+  const expCombo = createComboSelect(presetExpenses.map(p => p.label), {
+    width: '100px', placeholder: '用途', dataField: 'note',
+    onSelect: function(label) {
+      const found = presetExpenses.find(p => p.label === label);
+      if (found && found.amount > 0) {
+        const ai = div.querySelector('[data-field="amount"]');
+        ai.value = addCommas(found.amount);
+        ai.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+  });
+
+  div.innerHTML = `
+    <div class="exp-main-row">
+      <span data-slot="expNote"></span>
+      <div class="age-stepper">
+        <button type="button" data-step="-1">−</button>
+        <input type="number" data-field="age" value="${currentAge + 5}" min="1" max="120">
+        <button type="button" data-step="1">+</button>
+      </div>
+      <span style="color:#666;font-size:0.85em">岁</span>
+      <input type="text" class="exp-amount" data-field="amount" value="${defaultAmount > 0 ? addCommas(defaultAmount) : ''}" inputmode="numeric" placeholder="总价">
+      <span class="exp-hint"></span>
+      <button class="exp-loan-toggle" data-action="toggleLoan">贷款</button>
+      <button class="exp-remove" title="删除">&times;</button>
+    </div>
+    <div class="exp-loan-row" data-loan-row>
+      <label>首付</label>
+      <select data-field="downPct" style="width:70px;">
+        <option value="100">全款</option>
+        <option value="70">70%</option>
+        <option value="50">50%</option>
+        <option value="30" selected>30%</option>
+        <option value="20">20%</option>
+        <option value="10">10%</option>
+        <option value="0">0%</option>
+      </select>
+      <label>利率</label>
+      <div class="age-stepper" style="display:inline-flex;">
+        <button type="button" data-rate-step="-0.1">−</button>
+        <input type="number" data-field="loanRate" value="3.5" min="0" max="30" step="0.1" style="width:52px;">
+        <button type="button" data-rate-step="0.1">+</button>
+      </div>
+      <span style="color:#666;font-size:0.8em">%</span>
+      <label>期限</label>
+      <select data-field="loanYears" style="width:70px;">
+        <option value="5">5年</option>
+        <option value="10">10年</option>
+        <option value="15">15年</option>
+        <option value="20">20年</option>
+        <option value="25">25年</option>
+        <option value="30" selected>30年</option>
+      </select>
+      <div class="exp-loan-info" data-loan-info></div>
+    </div>
+  `;
+
+  // Replace slot with combo select
+  div.querySelector('[data-slot="expNote"]').replaceWith(expCombo.wrap);
+
+  $('expenseList').appendChild(div);
+
+  // Age stepper buttons
+  div.querySelectorAll('[data-step]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      stepAge(div.querySelector('[data-field="age"]'), parseInt(this.dataset.step));
+    });
+  });
+
+  // Loan rate stepper buttons
+  div.querySelectorAll('[data-rate-step]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const input = div.querySelector('[data-field="loanRate"]');
+      const delta = parseFloat(this.dataset.rateStep);
+      let val = Math.round(((parseFloat(input.value) || 0) + delta) * 10) / 10;
+      val = Math.max(0, Math.min(30, val));
+      input.value = val;
+      input.dispatchEvent(new Event('input'));
+    });
+  });
+
+  // Setup amount formatting
+  const amountInput = div.querySelector('[data-field="amount"]');
+  const hint = div.querySelector('.exp-hint');
+
+  function updateExpHint() {
+    hint.textContent = wanHint(parseFormatted(amountInput.value));
+  }
+
+  function setupFormattedInput(input) {
+    input.addEventListener('input', function() {
+      const pos = this.selectionStart;
+      const beforeCursor = this.value.substring(0, pos);
+      const digitsBefore = beforeCursor.replace(/[^0-9]/g, '').length;
+      const raw = this.value.replace(/[^0-9]/g, '');
+      const num = parseInt(raw) || 0;
+      this.value = num > 0 ? addCommas(num) : '';
+      let newPos = 0, digits = 0;
+      for (let i = 0; i < this.value.length; i++) {
+        if (this.value[i] !== ',') digits++;
+        if (digits >= digitsBefore) { newPos = i + 1; break; }
+      }
+      if (digits < digitsBefore) newPos = this.value.length;
+      this.setSelectionRange(newPos, newPos);
+      updateExpHint();
+      updateLoanInfo();
+      calculate();
+    });
+  }
+
+  setupFormattedInput(amountInput);
+
+  // Loan toggle
+  const loanToggle = div.querySelector('[data-action="toggleLoan"]');
+  const loanRow = div.querySelector('[data-loan-row]');
+  loanToggle.addEventListener('click', function() {
+    const show = !loanRow.classList.contains('show');
+    loanRow.classList.toggle('show', show);
+    this.classList.toggle('active', show);
+    this.textContent = show ? '取消贷款' : '贷款';
+    updateLoanInfo();
+    calculate();
+  });
+
+  // Loan info update
+  const loanInfoEl = div.querySelector('[data-loan-info]');
+  function updateLoanInfo() {
+    if (!loanRow.classList.contains('show')) { loanInfoEl.textContent = ''; return; }
+    const total = parseFormatted(amountInput.value);
+    const downPct = parseInt(div.querySelector('[data-field="downPct"]').value) || 0;
+    const loanRate = (parseFloat(div.querySelector('[data-field="loanRate"]').value) || 0) / 100;
+    const loanYears = parseInt(div.querySelector('[data-field="loanYears"]').value) || 30;
+
+    if (downPct >= 100 || total <= 0) { loanInfoEl.textContent = '全款支付，无贷款'; return; }
+
+    const downPayment = total * downPct / 100;
+    const loanAmount = total - downPayment;
+    const monthlyRate = loanRate / 12;
+    const months = loanYears * 12;
+    let monthlyPayment = 0;
+    if (monthlyRate > 0) {
+      monthlyPayment = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
+    } else {
+      monthlyPayment = loanAmount / months;
+    }
+    const yearlyPayment = monthlyPayment * 12;
+    const totalInterest = monthlyPayment * months - loanAmount;
+
+    loanInfoEl.innerHTML = `首付 <b>${formatMoney(downPayment)}</b>，贷款 <b>${formatMoney(loanAmount)}</b>，月供 <b>${formatMoney(monthlyPayment)}</b>（年还 ${formatMoney(yearlyPayment)}），${loanYears}年总利息 ${formatMoney(totalInterest)}`;
+  }
+
+  // Listen to loan field changes
+  div.querySelectorAll('[data-field="downPct"],[data-field="loanRate"],[data-field="loanYears"]').forEach(el => {
+    el.addEventListener('input', function() { updateLoanInfo(); calculate(); });
+    el.addEventListener('change', function() { updateLoanInfo(); calculate(); });
+  });
+
+  // Recalculate when note changes (for custom input)
+  expCombo.input.addEventListener('input', calculate);
+
+  div.querySelector('[data-field="age"]').addEventListener('input', function() { updateLoanInfo(); calculate(); });
+  div.querySelector('.exp-remove').addEventListener('click', function() {
+    div.remove();
+    calculate();
+  });
+
+  updateExpHint();
+  updateLoanInfo();
+  calculate();
+}
+
+function getExpenses() {
+  const items = [];
+  document.querySelectorAll('.expense-item').forEach(div => {
+    const age = parseInt(div.querySelector('[data-field="age"]').value) || 0;
+    const amount = parseFormatted(div.querySelector('[data-field="amount"]').value);
+    const note = div.querySelector('[data-field="note"]').value;
+    if (age <= 0 || amount <= 0) return;
+
+    const loanRow = div.querySelector('[data-loan-row]');
+    const hasLoan = loanRow.classList.contains('show');
+    const downPct = parseInt(div.querySelector('[data-field="downPct"]').value) || 0;
+
+    if (hasLoan && downPct < 100) {
+      const loanRate = (parseFloat(div.querySelector('[data-field="loanRate"]').value) || 0) / 100;
+      const loanYears = parseInt(div.querySelector('[data-field="loanYears"]').value) || 30;
+      const downPayment = amount * downPct / 100;
+      const loanAmount = amount - downPayment;
+      const monthlyRate = loanRate / 12;
+      const months = loanYears * 12;
+      let monthlyPayment = 0;
+      if (monthlyRate > 0) {
+        monthlyPayment = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
+      } else {
+        monthlyPayment = loanAmount / months;
+      }
+      items.push({
+        age, note,
+        amount: downPayment,
+        loanYearlyPayment: monthlyPayment * 12,
+        loanYears: loanYears,
+        loanAmount: loanAmount
+      });
+    } else {
+      items.push({ age, amount, note, loanYearlyPayment: 0, loanYears: 0, loanAmount: 0 });
+    }
+  });
+  return items;
+}
+
+$('addExpense').addEventListener('click', function() {
+  addExpenseItem(presetExpenses[0]);
+});
+
 function calculate() {
   const age = parseInt($('age').value) || 30;
   const savings = parseFormatted($('savings').value);
@@ -389,6 +1142,17 @@ function calculate() {
   const pensionYearly = pensionMonthly * 12;
   const pensionStartAge = gender === 'male' ? 65 : 60;
 
+  // Incomes
+  const incomes = getIncomes();
+
+  // Big expenses
+  const expenses = getExpenses();
+  const expenseByAge = {};
+  expenses.forEach(e => {
+    if (!expenseByAge[e.age]) expenseByAge[e.age] = [];
+    expenseByAge[e.age].push(e);
+  });
+
   const safeSpending = savings * rate;
   const resultsEl = $('results');
 
@@ -401,7 +1165,35 @@ function calculate() {
     const currentAge = age + i;
     const interest = balance * rate;
     const pensionIncome = (hasPension && currentAge >= pensionStartAge) ? pensionYearly : 0;
-    const netSpending = spending - pensionIncome;
+
+    // Work income this year
+    let workIncome = 0;
+    incomes.forEach(inc => {
+      if (currentAge >= inc.startAge && currentAge < inc.endAge) {
+        workIncome += inc.yearly;
+      }
+    });
+
+    // Big expenses this year (down payments)
+    const yearExpenses = expenseByAge[currentAge] || [];
+    const bigExpenseTotal = yearExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const bigExpenseNotes = yearExpenses.map(e => {
+      if (e.loanAmount > 0) return e.note + ' 首付' + formatMoney(e.amount);
+      return e.note + ' ' + formatMoney(e.amount);
+    }).join('、');
+
+    // Loan repayments ongoing this year
+    let loanRepayment = 0;
+    const loanDetails = [];
+    expenses.forEach(e => {
+      if (e.loanYearlyPayment > 0 && currentAge > e.age && currentAge <= e.age + e.loanYears) {
+        loanRepayment += e.loanYearlyPayment;
+        loanDetails.push(e.note + '月供');
+      }
+    });
+
+    const totalIncome = workIncome + pensionIncome;
+    const netSpending = spending + bigExpenseTotal + loanRepayment - totalIncome;
     const yearEnd = balance + interest - netSpending;
     years.push({
       year: i,
@@ -409,7 +1201,12 @@ function calculate() {
       startBalance: balance,
       interest: interest,
       pension: pensionIncome,
+      workIncome: workIncome,
       spending: spending,
+      bigExpense: bigExpenseTotal,
+      bigExpenseNotes: bigExpenseNotes,
+      loanRepayment: loanRepayment,
+      loanDetails: loanDetails.join('、'),
       netSpending: netSpending,
       endBalance: Math.max(yearEnd, 0)
     });
@@ -458,11 +1255,32 @@ function calculate() {
     </div>`;
   }
 
+  // Expense summary
+  if (expenses.length > 0) {
+    const totalDown = expenses.reduce((s, e) => s + e.amount, 0);
+    const totalLoan = expenses.reduce((s, e) => s + (e.loanAmount || 0), 0);
+    const expList = expenses.map(e => {
+      let s = `${e.age}岁 ${e.note}`;
+      if (e.loanAmount > 0) {
+        s += ` 首付${formatMoney(e.amount)} + 贷款${formatMoney(e.loanAmount)}（年还${formatMoney(e.loanYearlyPayment)}×${e.loanYears}年）`;
+      } else {
+        s += ` ${formatMoney(e.amount)}`;
+      }
+      return s;
+    }).join('<br>');
+    const totalLabel = totalLoan > 0 ? `一次性支出 ${formatMoney(totalDown)}，贷款 ${formatMoney(totalLoan)}` : `共 ${formatMoney(totalDown)}`;
+    html += `<div class="result-box" style="background:rgba(225,112,85,0.1);border:1px solid rgba(225,112,85,0.3);">
+      <div class="label">大额支出计划</div>
+      <div class="value" style="color:#e17055;font-size:1.3em;">${totalLabel}</div>
+      <div class="detail">${expList}</div>
+    </div>`;
+  }
+
   resultsEl.innerHTML = html;
 
   // Draw chart & table
   drawChart(years, depleted, age);
-  fillTable(years, hasPension);
+  fillTable(years, hasPension, incomes.length > 0, expenses.length > 0);
 }
 
 function drawChart(years, depleted, startAge) {
@@ -481,7 +1299,7 @@ function drawChart(years, depleted, startAge) {
 
   const data = [years[0].startBalance, ...years.map(y => y.endBalance)];
   const maxVal = Math.max(...data) * 1.1 || 1;
-  const padL = 70, padR = 20, padT = 20, padB = 40;
+  const padL = 70, padR = 20, padT = 28, padB = 40;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
@@ -533,6 +1351,44 @@ function drawChart(years, depleted, startAge) {
   ctx.fillStyle = grad;
   ctx.fill();
 
+  // Draw big expense / loan markers
+  years.forEach((y, i) => {
+    const dx = padL + ((i + 1) / (data.length - 1)) * chartW;
+    if (y.bigExpense > 0) {
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = 'rgba(225, 112, 85, 0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(dx, padT);
+      ctx.lineTo(dx, padT + chartH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Triangle marker at top
+      ctx.fillStyle = '#e17055';
+      ctx.beginPath();
+      ctx.moveTo(dx, padT);
+      ctx.lineTo(dx - 4, padT - 8);
+      ctx.lineTo(dx + 4, padT - 8);
+      ctx.closePath();
+      ctx.fill();
+    } else if (y.loanRepayment > 0) {
+      // Subtle tick at bottom for loan repayment years
+      ctx.fillStyle = 'rgba(225, 112, 85, 0.3)';
+      ctx.fillRect(dx - 0.5, padT + chartH - 4, 1, 4);
+    }
+  });
+
+  // Store chart metadata for tooltip
+  const extraInfoByIdx = {};
+  years.forEach((y, i) => {
+    const parts = [];
+    if (y.workIncome > 0) parts.push('<span style="color:#2ed573">收入 +' + formatMoney(y.workIncome) + '</span>');
+    if (y.bigExpense > 0) parts.push('<span style="color:#e17055">' + y.bigExpenseNotes + '</span>');
+    if (y.loanRepayment > 0) parts.push('<span style="color:#e17055">还贷 ' + formatMoney(y.loanRepayment) + '</span>');
+    if (parts.length > 0) extraInfoByIdx[i + 1] = parts.join('<br>');
+  });
+  canvas._chartMeta = { data, maxVal, padL, padR, padT, padB, chartW, chartH, startAge, W, H, extraInfo: extraInfoByIdx };
+
   // Zero line if depleted
   if (depleted > 0) {
     const zx = padL + (depleted / (data.length - 1)) * chartW;
@@ -551,22 +1407,109 @@ function drawChart(years, depleted, startAge) {
   }
 }
 
-function fillTable(years, hasPension) {
+// Chart tooltip interaction
+(function() {
+  const canvas = $('chart');
+  const tooltip = $('chartTooltip');
+  const crossV = $('crossV');
+  const crossH = $('crossH');
+  const dot = $('chartDot');
+  const container = canvas.parentElement;
+
+  function hideTooltip() {
+    tooltip.classList.remove('show');
+    crossV.classList.remove('show');
+    crossH.classList.remove('show');
+    dot.classList.remove('show');
+  }
+
+  container.addEventListener('mousemove', function(e) {
+    const meta = canvas._chartMeta;
+    if (!meta || meta.data.length < 2) { hideTooltip(); return; }
+
+    const rect = container.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Check if within chart area
+    if (mx < meta.padL || mx > meta.W - meta.padR || my < meta.padT || my > meta.padT + meta.chartH) {
+      hideTooltip();
+      return;
+    }
+
+    // Find nearest data point
+    const ratio = (mx - meta.padL) / meta.chartW;
+    const idx = Math.round(ratio * (meta.data.length - 1));
+    const clampedIdx = Math.max(0, Math.min(meta.data.length - 1, idx));
+
+    const pointX = meta.padL + (clampedIdx / (meta.data.length - 1)) * meta.chartW;
+    const pointY = meta.padT + meta.chartH * (1 - meta.data[clampedIdx] / meta.maxVal);
+
+    const age = meta.startAge + clampedIdx;
+    const val = meta.data[clampedIdx];
+
+    // Position crosshairs
+    crossV.style.left = pointX + 'px';
+    crossH.style.top = pointY + 'px';
+    crossV.classList.add('show');
+    crossH.classList.add('show');
+
+    // Position dot
+    dot.style.left = pointX + 'px';
+    dot.style.top = pointY + 'px';
+    dot.classList.add('show');
+
+    // Position tooltip
+    const extra = meta.extraInfo && meta.extraInfo[clampedIdx] ? '<br>' + meta.extraInfo[clampedIdx] : '';
+    tooltip.innerHTML = `<span class="tt-age">${age} 岁</span><br>余额: <span class="tt-val">${formatMoney(val)}</span>${extra}`;
+    tooltip.classList.add('show');
+
+    // Adjust tooltip position to avoid overflow
+    const ttW = tooltip.offsetWidth;
+    const ttH = tooltip.offsetHeight;
+    let tx = pointX + 12;
+    let ty = pointY - ttH - 12;
+    if (tx + ttW > meta.W) tx = pointX - ttW - 12;
+    if (ty < 0) ty = pointY + 16;
+    tooltip.style.left = tx + 'px';
+    tooltip.style.top = ty + 'px';
+  });
+
+  container.addEventListener('mouseleave', hideTooltip);
+})();
+
+function fillTable(years, hasPension, hasIncome, hasExpenses) {
   // Update header
-  $('tableHead').innerHTML = hasPension
-    ? '<th>年龄</th><th>年初余额</th><th>投资收益</th><th>养老金</th><th>年度支出</th><th>年末余额</th>'
-    : '<th>年龄</th><th>年初余额</th><th>投资收益</th><th>年度支出</th><th>年末余额</th>';
+  let cols = '<th>年龄</th><th>年初余额</th><th>投资收益</th>';
+  if (hasIncome) cols += '<th>工作收入</th>';
+  if (hasPension) cols += '<th>养老金</th>';
+  cols += '<th>日常支出</th>';
+  if (hasExpenses) cols += '<th>大额/还贷</th>';
+  cols += '<th>年末余额</th>';
+  $('tableHead').innerHTML = cols;
 
   const tbody = $('tableBody');
   tbody.innerHTML = years.map(y => {
-    const cls = y.endBalance <= 0 ? 'class="zero-row"' : '';
-    const pensionCol = hasPension ? `<td style="color:#2ed573">+${formatMoney(y.pension)}</td>` : '';
-    return `<tr ${cls}>
-      <td>${y.age} 岁</td>
+    const hasExtra = y.bigExpense > 0 || y.loanRepayment > 0;
+    const cls = y.endBalance <= 0 ? 'zero-row' : (hasExtra ? 'expense-row' : '');
+    const incomeCol = hasIncome ? `<td style="color:#2ed573">${y.workIncome > 0 ? '+' + formatMoney(y.workIncome) : '-'}</td>` : '';
+    const pensionCol = hasPension ? `<td style="color:#2ed573">${y.pension > 0 ? '+' + formatMoney(y.pension) : '-'}</td>` : '';
+    let extraCol = '';
+    if (hasExpenses) {
+      const parts = [];
+      if (y.bigExpense > 0) parts.push(y.bigExpenseNotes);
+      if (y.loanRepayment > 0) parts.push('还贷 ' + formatMoney(y.loanRepayment));
+      const extraTotal = y.bigExpense + y.loanRepayment;
+      extraCol = `<td style="color:#e17055" title="${parts.join('；')}">${extraTotal > 0 ? '-' + formatMoney(extraTotal) : '-'}</td>`;
+    }
+    return `<tr ${cls ? 'class="' + cls + '"' : ''}>
+      <td>${y.age} 岁${hasExtra ? ' *' : ''}</td>
       <td>${formatMoney(y.startBalance)}</td>
       <td>+${formatMoney(y.interest)}</td>
+      ${incomeCol}
       ${pensionCol}
       <td>-${formatMoney(y.spending)}</td>
+      ${extraCol}
       <td>${formatMoney(y.endBalance)}</td>
     </tr>`;
   }).join('');
