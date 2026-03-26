@@ -222,19 +222,13 @@ async function init() {
   initUI();
   initChartTooltip();
 
-  // Load 3D scene on desktop
+  // Load 3D background on desktop (chart stays as 2D canvas)
   if (!isMobile) {
     try {
       const { initScene } = await import('./scene.js');
-      const chart3dUpdate = await initScene();
-      if (chart3dUpdate) {
-        updateChart = chart3dUpdate;
-        // Hide 2D chart container on desktop — 3D chart renders in Three.js scene
-        const chartContainer = $('chartContainer');
-        if (chartContainer) chartContainer.style.display = 'none';
-      }
+      await initScene();
     } catch (e) {
-      console.warn('Three.js init failed, using 2D fallback:', e);
+      console.warn('Three.js init failed:', e);
     }
   }
 
