@@ -222,7 +222,7 @@ async function init() {
   initUI();
   initChartTooltip();
 
-  // Load 3D background on desktop (chart stays as 2D canvas)
+  // Load 3D background + panel parallax on desktop
   if (!isMobile) {
     try {
       const { initScene } = await import('./scene.js');
@@ -230,10 +230,41 @@ async function init() {
     } catch (e) {
       console.warn('Three.js init failed:', e);
     }
+    initParallax();
   }
 
   runCalculation();
   window.addEventListener('resize', runCalculation);
+}
+
+// --- Panel 3D parallax ---
+function initParallax() {
+  const panels = document.querySelectorAll('.hud-panel');
+  let mouseX = 0, mouseY = 0;
+  let currentX = 0, currentY = 0;
+
+  document.addEventListener('mousemove', (e) => {
+    mouseX = (e.clientX / window.innerWidth - 0.5) * 2;  // -1 to 1
+    mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    // Smooth lerp
+    currentX += (mouseX - currentX) * 0.08;
+    currentY += (mouseY - currentY) * 0.08;
+
+    panels.forEach((panel, i) => {
+      // Each panel gets slightly different parallax depth
+      const depth = 1 + i * 0.3;
+      const rotY = currentX * 1.5 * depth;
+      const rotX = -currentY * 1.0 * depth;
+      const transX = currentX * 3 * depth;
+      const transY = currentY * 2 * depth;
+      panel.style.transform = `translateX(${transX}px) translateY(${transY}px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+    });
+  }
+  animate();
 }
 
 init();
