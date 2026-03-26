@@ -204,8 +204,12 @@ function runCalculation() {
   const params = collectParams();
   const results = calculate(params);
   renderResults(results, params);
-  updateChart(results.years, results.depleted, params.age);
   fillTable(results.years, params.hasPension, params.incomes.length > 0, params.expenses.length > 0);
+  try {
+    updateChart(results.years, results.depleted, params.age);
+  } catch (e) {
+    console.warn('Chart update error:', e);
+  }
 }
 
 // --- Initialization ---
@@ -225,13 +229,9 @@ async function init() {
       const chart3dUpdate = await initScene();
       if (chart3dUpdate) {
         updateChart = chart3dUpdate;
-        // Hide 2D canvas chart elements on desktop
-        const chartCanvas = $('chart');
-        if (chartCanvas) chartCanvas.style.display = 'none';
-        $('chartTooltip').style.display = 'none';
-        $('crossV').style.display = 'none';
-        $('crossH').style.display = 'none';
-        $('chartDot').style.display = 'none';
+        // Hide 2D chart container on desktop — 3D chart renders in Three.js scene
+        const chartContainer = $('chartContainer');
+        if (chartContainer) chartContainer.style.display = 'none';
       }
     } catch (e) {
       console.warn('Three.js init failed, using 2D fallback:', e);
