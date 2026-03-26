@@ -34,10 +34,10 @@ body {
 }
 .three-container canvas { display: block; }
 
-/* Main container */
+/* Main container — must be above Three.js layers */
 .container {
   position: relative;
-  z-index: 1;
+  z-index: 10;
   max-width: 800px;
   margin: 0 auto;
   padding: 40px 20px;
@@ -551,8 +551,11 @@ h1 {
   top: 0;
   background: #0a1628;
 }
+.year-table td {
+  background: #0b1524;
+}
 .year-table td:first-child, .year-table th:first-child { text-align: left; }
-.year-table tr:hover td { background: rgba(30, 144, 255, 0.03); }
+.year-table tr:hover td { background: #0f1d30; }
 .zero-row td { color: var(--hud-danger); font-weight: 600; }
 .expense-row td { color: var(--hud-expense); }
 

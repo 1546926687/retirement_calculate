@@ -35,9 +35,8 @@ export function initChart(scene, cam, domContainer) {
   css2dRenderer.domElement.style.pointerEvents = 'none';
   domContainer.appendChild(css2dRenderer.domElement);
 
-  // Mouse interaction
-  domContainer.style.pointerEvents = 'auto';
-  domContainer.addEventListener('mousemove', onMouseMove);
+  // Mouse interaction — listen on document, not container, to avoid blocking page content
+  document.addEventListener('mousemove', onMouseMove);
 
   window.addEventListener('resize', () => {
     css2dRenderer.setSize(window.innerWidth, window.innerHeight);
