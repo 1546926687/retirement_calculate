@@ -1,0 +1,34 @@
+/* css/mobile.css — Mobile 2D Fallback */
+
+.mobile-mode .three-container {
+  display: none !important;
+}
+
+.mobile-mode .container {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  padding: 20px 12px;
+}
+
+.mobile-mode .card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(10, 20, 40, 0.9);
+}
+
+.mobile-mode .chart-container canvas {
+  display: block !important;
+}
+.mobile-mode .chart-tooltip,
+.mobile-mode .chart-crosshair-v,
+.mobile-mode .chart-crosshair-h,
+.mobile-mode .chart-dot {
+  display: block !important;
+}
+
+.mobile-mode .hud-panel {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: panelEnter 0.5s ease forwards;
+}
